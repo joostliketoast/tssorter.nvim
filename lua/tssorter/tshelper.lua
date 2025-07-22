@@ -198,30 +198,27 @@ end
 ---@return string? sortable_name
 ---@return TSNode[]?
 M.find_sortables = function(sortables)
-  local name, sortable_node = find_nearest_sortable(sortables)
+  local node = vim.treesitter.get_node({ ignore_injections = false })
+  while node do
+    for name, sortable_config in pairs(sortables) do
+      if node_matches_sortable(node, sortable_config) then
+        local parent = node:parent()
+        local possible_types = sortable_config.node
+        if type(possible_types) ~= 'table' then
+          possible_types = { possible_types }
+        end
 
-  if not sortable_node then
-    logger.warn('No sortable node under the cursor')
-    return
-  end
-
-  local parent = sortable_node:parent()
-
-  if not parent then
-    logger.warn('Invalid orphan node, needs parent to iterate through sibling nodes')
-    return
-  end
-
-  local sortable_nodes = {}
-  local target_type = sortable_node:type()
-
-  for possible_sortable in parent:iter_children() do
-    if possible_sortable:type() == target_type then
-      table.insert(sortable_nodes, possible_sortable)
+        local sortable_nodes = {}
+        for possible_sortable in parent:iter_children() do
+          if vim.tbl_contains(possible_types, possible_sortable:type()) then
+            table.insert(sortable_nodes, possible_sortable)
+          end
+        end
+        return name, sortable_nodes
+      end
     end
+    node = node:parent()
   end
-
-  return name, sortable_nodes
 end
 
 --- Return the first nested child of this type
